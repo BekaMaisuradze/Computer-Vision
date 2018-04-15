@@ -27,7 +27,9 @@ def conv(image, kernel):
     padded = np.pad(image, pad_width, mode='edge')
 
     ### YOUR CODE HERE
-    pass
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i][j] = np.sum(kernel * padded[i:i+Hk, j:j+Wk])
     ### END YOUR CODE
 
     return out
@@ -52,7 +54,10 @@ def gaussian_kernel(size, sigma):
     kernel = np.zeros((size, size))
 
     ### YOUR CODE HERE
-    pass
+    d = (size-1) / 2
+    for i in range(size):
+        for j in range(size):
+            kernel[i,j] = np.exp((-((i - d)**2 + (j - d)**2)) / (2 * sigma**2)) / (2 * np.pi * sigma**2);
     ### END YOUR CODE
 
     return kernel
@@ -72,7 +77,8 @@ def partial_x(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([-0.5,0,0.5]).reshape((1, 3))
+    out = conv(img, kernel);
     ### END YOUR CODE
 
     return out
@@ -92,7 +98,8 @@ def partial_y(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    kernel = np.array([-0.5,0,0.5]).reshape((3, 1))
+    out = conv(img, kernel);
     ### END YOUR CODE
 
     return out
@@ -113,7 +120,10 @@ def gradient(img):
     theta = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    image_dx = partial_x(img)
+    image_dy = partial_y(img)
+    G = (image_dx**2 + image_dy**2)**0.5
+    theta = np.arctan2(image_dy, image_dx)%360
     ### END YOUR CODE
 
     return G, theta
@@ -139,7 +149,24 @@ def non_maximum_suppression(G, theta):
     theta = np.floor((theta + 22.5) / 45) * 45
 
     ### BEGIN YOUR CODE
-    pass
+    for i in range(H):
+        for j in range(W):
+            dir = theta[i,j]
+            if dir % 180 == 0 and j-1 >= 0 and j+1 < W:
+                neighbors = [G[i, j-1], G[i, j+1]]
+            elif dir % 180 == 45 and i-1 >= 0 and j-1 >= 0 and i+1 < H and j+1 < W:
+                neighbors = [G[i-1, j-1], G[i+1, j+1]]
+            elif dir % 180 == 90 and i-1 >= 0 and i+1 < H:
+                neighbors = [G[i-1, j], G[i+1, j]]
+            elif dir % 180 == 135 and i-1 >= 0 and j-1 >= 0 and i+1 < H and j+1 < W:
+                neighbors = [G[i-1, j+1], G[i+1, j-1]]
+            else:
+                continue
+                
+            if G[i,j] >= np.max(neighbors):
+                out[i,j] = G[i,j]
+            else:
+                out[i, j] = 0
     ### END YOUR CODE
 
     return out
@@ -164,7 +191,9 @@ def double_thresholding(img, high, low):
     weak_edges = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    # Let's use boolean array indexing
+    strong_edges = img > high
+    weak_edges = (img < high) & (img > low)
     ### END YOUR CODE
 
     return strong_edges, weak_edges
@@ -213,11 +242,31 @@ def link_edges(strong_edges, weak_edges):
     """
 
     H, W = strong_edges.shape
-    indices = np.stack(np.nonzero(strong_edges)).T
     edges = np.zeros((H, W))
 
     ### YOUR CODE HERE
-    pass
+    pending_pixcels = []
+    for i in range(H):
+        for j in range(W):
+            if (strong_edges[i][j] == 1):
+                pending_pixcels.append((i, j))
+                edges[i][j] = 1
+
+    visited_pixcels = np.zeros_like(edges)
+    while len(pending_pixcels) != 0:
+        curr_i, curr_j = pending_pixcels.pop(0)
+
+        if visited_pixcels[curr_i, curr_j] == 1:
+            continue
+
+        visited_pixcels[curr_i, curr_j] = 1
+
+        neighors = get_neighbors(curr_i, curr_j, H, W)
+
+        for i, j in neighors:
+            if weak_edges[i, j]:
+                edges[i, j] = True
+                pending_pixcels.append((i, j))
     ### END YOUR CODE
 
     return edges
@@ -235,7 +284,11 @@ def canny(img, kernel_size=5, sigma=1.4, high=20, low=15):
         edge: numpy array of shape(H, W)
     """
     ### YOUR CODE HERE
-    pass
+    img = conv(img, gaussian_kernel(kernel_size, sigma))
+    G, theta = gradient(img)
+    G = non_maximum_suppression(G, theta)
+    strong_edges, weak_edges = double_thresholding(G, high, low)
+    edge = link_edges(strong_edges, weak_edges)
     ### END YOUR CODE
 
     return edge
@@ -274,8 +327,12 @@ def hough_transform(img):
     # Transform each point (x, y) in image
     # Find rho corresponding to values in thetas
     # and increment the accumulator in the corresponding coordiate.
-    ### YOUR CODE HERE
-    pass
+    ### YOUR CODE 
+    count = len(ys)
+    for i in range(count):
+        for j in range(num_thetas):
+            rho = xs[i] * cos_t[j] + ys[i] * sin_t[j]
+            accumulator[int(rho + diag_len), j] += 1
     ### END YOUR CODE
 
     return accumulator, rhos, thetas

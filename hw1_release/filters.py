@@ -17,10 +17,19 @@ def conv_nested(image, kernel):
     """
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
+    Hk_half, Wk_half = int(Hk/2), int(Wk/2)
     out = np.zeros((Hi, Wi))
-
+    # print(image)
     ### YOUR CODE HERE
-    pass
+    for i in range(Hi):
+        for j in range(Wi):
+            for m in range(Hk):
+                for n in range(Wk):
+                    y = i - Hk_half + m
+                    x = j - Wk_half + n
+                    # print((i, j), (y, x), (m, n))
+                    if x >= 0 and y >= 0 and x < Wi and y < Hi:
+                        out[i, j] = out[i, j] + image[y, x] * kernel[m, n]
     ### END YOUR CODE
 
     return out
@@ -43,11 +52,8 @@ def zero_pad(image, pad_height, pad_width):
         out: numpy array of shape (H+2*pad_height, W+2*pad_width)
     """
 
-    H, W = image.shape
-    out = None
-
     ### YOUR CODE HERE
-    pass
+    out = np.pad(image, ((pad_height, pad_height), (pad_width, pad_width)), 'constant')
     ### END YOUR CODE
     return out
 
@@ -73,10 +79,15 @@ def conv_fast(image, kernel):
     """
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
+    Hk_half, Wk_half = int(Hk/2), int(Wk/2)
     out = np.zeros((Hi, Wi))
-
     ### YOUR CODE HERE
-    pass
+    image = zero_pad(image, Hk_half, Wk_half)
+    # kernel = np.flip(np.flip(kernel, 1), 0)
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i, j] = \
+                np.sum(kernel * image[i:i + Hk, j:j + Wk])
     ### END YOUR CODE
 
     return out
@@ -115,7 +126,7 @@ def cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    out = conv_fast(f, np.flip(np.flip(g, 0), 1))
     ### END YOUR CODE
 
     return out
@@ -135,7 +146,8 @@ def zero_mean_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    ave = np.sum(g) / (g.shape[0] * g.shape[1])
+    out = cross_correlation(f, g - ave)
     ### END YOUR CODE
 
     return out
@@ -153,10 +165,24 @@ def normalized_cross_correlation(f, g):
     Returns:
         out: numpy array of shape (Hf, Wf)
     """
-
-    out = None
     ### YOUR CODE HERE
-    pass
+    Hi, Wi = f.shape
+    Hk, Wk = g.shape
+    # print(f.shape, g.shape)
+    g_mean = np.sum(g)/ (Hk*Wk)
+    g_standard = np.sum(np.abs(g - g_mean)) / (Hk*Wk)
+    kernel = (g - g_mean) / g_standard
+
+    out = np.zeros((Hi, Wi))
+    image = zero_pad(f, int(Hk/2), int(Wk/2))
+    # print(image.shape, kernel.shape)
+    for i in range(Hi):
+        for j in range(Wi):
+            f_mean = np.sum(image[i:i + Hk, j:j + Wk]) / (Hk * Wk)
+
+            f_standard = np.sum(np.abs(image[i:i + Hk, j:j + Wk] - f_mean)) / (Hk * Wk)
+
+            out[i, j] = np.sum(kernel * (image[i:i + Hk, j:j + Wk] - f_mean) / f_standard)
     ### END YOUR CODE
 
     return out
